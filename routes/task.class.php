@@ -48,7 +48,10 @@ class TaskRoot extends SingleRouteHandler
 
         $data = $model->to_create();
         $task = \Task::create($data);
-        die('<pre>'.print_r($task, true));
+        if ($task)
+            \Http::response(200, json_encode(TaskModel::from_response($task)), 'application/json');
+        else
+            \Http::response(400, json_encode(['error' => 'failed to create task']), 'application/json');
     }
 }
 
