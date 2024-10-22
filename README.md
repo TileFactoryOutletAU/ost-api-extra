@@ -1,2 +1,2 @@
 # ost-api-extra
-API addon for osTicket
+Addon API for osTicket
