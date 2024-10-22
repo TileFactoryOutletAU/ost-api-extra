@@ -41,7 +41,7 @@ class Api
         if ($this->apiKeyData)
         {
             // Key is active
-            if ($this->apiKeyData->isactive())
+            if ($this->apiKeyData->isActive())
             {
                 // Key matches remote ip or wildcard
                 if (
