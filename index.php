@@ -10,6 +10,7 @@ require_once(\INCLUDE_DIR . 'class.api.php');
 require_once(\INCLUDE_DIR . 'class.http.php');
 require_once(\INCLUDE_DIR . 'class.staff.php');
 
+// TODO: CHANGE THIS
 define('STAFF_ID', 1);
 
 
@@ -24,26 +25,42 @@ class Api
         $this->register_handlers();
     }
 
-    function authenticate()
+    function authenticate(): bool
     {
         global $thisstaff;
 
-        if (!($apiKey = $_SERVER['PHP_AUTH_PW'])) {
-            \Http::response(401, 'Login Required');
+        if (!($apiKey = $_SERVER['PHP_AUTH_PW']))
+        {
+            \Http::response(401, json_encode(['error' => 'login required']), 'application/json');
             return false;
         }
 
         $this->apiKeyData = \API::lookupByKey($apiKey);
-        if (!$this->apiKeyData || !$this->apiKeyData->isactive()) {
-            \Http::response(401, 'API key invalid or inactive');
-            return false;
+
+        // Key exists
+        if ($this->apiKeyData)
+        {
+            // Key is active
+            if ($this->apiKeyData->isActive())
+            {
+                // Key matches remote ip or wildcard
+                if (
+                    ($this->apiKeyData->getIPAddr() == '0.0.0.0') || 
+                    ($this->apiKeyData->getIPAddr() == $_SERVER['REMOTE_ADDR'])
+                )
+                {
+                    // Set global staff member
+                    $thisstaff = \StaffSession::objects()
+                        ->filter(['staff_id' => STAFF_ID])
+                        ->first();
+                    return true;
+                }
+            }
         }
 
-        $thisstaff = \StaffSession::objects()
-            ->filter(['staff_id' => STAFF_ID])
-            ->first();
+        \Http::response(401, json_encode(['error' => 'api key invalid or inactive']), 'application/json');
+        return false;
 
-        return true;
     }
 
     function handle_request()
