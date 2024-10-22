@@ -10,14 +10,12 @@ require_once(\INCLUDE_DIR . 'class.api.php');
 require_once(\INCLUDE_DIR . 'class.http.php');
 require_once(\INCLUDE_DIR . 'class.staff.php');
 
-// TODO: CHANGE THIS
-define('STAFF_ID', 1);
-
 
 class Api
 {
 
     private $apiKeyData = null;
+    private $staffData = null;
     private $handlers = array();
 
     function __construct()
@@ -29,13 +27,14 @@ class Api
     {
         global $thisstaff;
 
-        if (!($apiKey = $_SERVER['PHP_AUTH_PW']))
+        if (!($apiKey = $_SERVER['PHP_AUTH_PW']) || !($username = $_SERVER['PHP_AUTH_USER']))
         {
             \Http::response(401, json_encode(['error' => 'login required']), 'application/json');
             return false;
         }
 
         $this->apiKeyData = \API::lookupByKey($apiKey);
+        $this->staffData = \StaffSession::lookup(['username' => $username]);
 
         // Key exists
         if ($this->apiKeyData)
@@ -49,16 +48,17 @@ class Api
                     ($this->apiKeyData->getIPAddr() == $_SERVER['REMOTE_ADDR'])
                 )
                 {
-                    // Set global staff member
-                    $thisstaff = \StaffSession::objects()
-                        ->filter(['staff_id' => STAFF_ID])
-                        ->first();
-                    return true;
+                    if ($this->staffData)
+                    {
+                        // Set global staff member
+                        $thisstaff = $this->staffData;
+                        return true;
+                    }
                 }
             }
         }
 
-        \Http::response(401, json_encode(['error' => 'api key invalid or inactive']), 'application/json');
+        \Http::response(401, json_encode(['error' => 'username or api key invalid or inactive']), 'application/json');
         return false;
 
     }
