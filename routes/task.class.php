@@ -3,6 +3,9 @@
 namespace ApiExtra;
 
 require_once(__DIR__ . '/../route.php');
+require_once(__DIR__ . '/../functions.php');
+require_once(\INCLUDE_DIR . 'class.staff.php');
+require_once(\INCLUDE_DIR . 'class.team.php');
 require_once(\INCLUDE_DIR . 'class.task.php');
 
 class TaskRoot extends SingleRouteHandler
@@ -48,7 +51,10 @@ class TaskRoot extends SingleRouteHandler
 
         $data = $model->to_create();
         $task = \Task::create($data);
-        die('<pre>'.print_r($task, true));
+        if ($task)
+            \Http::response(200, json_encode(TaskModel::from_response($task)), 'application/json');
+        else
+            \Http::response(400, json_encode(['error' => 'failed to create task']), 'application/json');
     }
 }
 
@@ -121,6 +127,7 @@ class TaskModel
     public string $title;
     public string $description;
     public int $department;
+    public string $assigneeType;
     public int $assignee;
     public string $duedate;
 
@@ -144,6 +151,12 @@ class TaskModel
             'poster' => $thisstaff,
             'ip_address' => $_SERVER['REMOTE_ADDR']
         );
+        if ($this->assignee !== null) {
+            $assignee = ($this->assigneeType == 't') ?
+                \Team::lookup($this->assignee) :
+                \Staff::lookup($this->assignee);
+            $request['internal_formdata']['assignee'] = $assignee;
+        }
 
         return $request;
     }
@@ -156,6 +169,14 @@ class TaskModel
         $task->title = $response->getVar('title');
         $task->description = $response->getVar('description');
         $task->department = $response->dept_id;
+        if ($response->team_id) {
+            $task->assigneeType = 't';
+            $task->assignee = $response->team_id;
+        }
+        elseif ($response->staff_id) {
+            $task->assigneeType = 's';
+            $task->assignee = $response->staff_id;
+        }
         $task->duedate = $response->getVar('duedate');
         return $task;
     }
@@ -184,9 +205,29 @@ class TaskModel
 
         // Due Date
         if (isset($body->duedate))
-            $task->duedate = $body->duedate;
+        {
+            $date = new DTHelper($body->duedate);
+            $task->duedate = $date->to_user();
+        }
         else
             $task->error[] = ['type'=>'missing_param','param'=>'duedate'];
+
+        // Assignee
+        if (isset($body->assignee))
+        {
+            preg_match('/(?P<type>\w?)(?P<id>\d+)/i', $body->assignee, $matches);
+            if (isset($matches['id'])) {
+                $type = (isset($matches['type']) && !empty($matches['type'])) ? strtolower($matches['type']) : 's';
+                if (in_array($type, ['s', 't'])) {
+                    $task->assigneeType = $type;
+                    $task->assignee = $matches['id'];
+                }
+                else
+                    $task->error[] = ['type'=>'invalid_param','param'=>'assignee','error'=>'unknown type'];
+            }
+            else
+                $task->error[] = ['type'=>'invalid_param','param'=>'assignee','error'=>'missing id'];
+        }
 
         return $task;
     }
