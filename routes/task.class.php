@@ -3,6 +3,7 @@
 namespace ApiExtra;
 
 require_once(__DIR__ . '/../route.php');
+require_once(__DIR__ . '/../functions.php');
 require_once(\INCLUDE_DIR . 'class.task.php');
 
 class TaskRoot extends SingleRouteHandler
@@ -187,7 +188,10 @@ class TaskModel
 
         // Due Date
         if (isset($body->duedate))
-            $task->duedate = $body->duedate;
+        {
+            $date = new DTHelper($body->duedate);
+            $task->duedate = $date->to_user();
+        }
         else
             $task->error[] = ['type'=>'missing_param','param'=>'duedate'];
 
